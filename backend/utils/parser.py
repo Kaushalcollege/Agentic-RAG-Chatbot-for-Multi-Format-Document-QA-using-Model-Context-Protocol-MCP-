@@ -4,6 +4,8 @@ import docx
 import csv
 import pptx
 import pandas as pd
+from pptx import Presentation
+import io
 
 def parse_pdf(file_bytes):
     text = ""
@@ -12,22 +14,29 @@ def parse_pdf(file_bytes):
             text += page.get_text()
     return text
 
-def parse_docx(file_bytes):
-    doc = docx.Document(file_bytes)
-    return "\n".join([p.text for p in doc.paragraphs])
+def parse_docx(file_bytes: bytes) -> str:
+    doc_stream = io.BytesIO(file_bytes)  # Wrap bytes as file-like
+    doc = docx.Document(doc_stream)      # Works now
+    return "\n".join([para.text for para in doc.paragraphs])
 
-def parse_pptx(file_bytes):
-    prs = pptx.Presentation(file_bytes)
-    text = []
+
+def parse_pptx(file_bytes: bytes) -> str:
+    # Convert bytes to a file-like object
+    pptx_stream = io.BytesIO(file_bytes)
+    prs = Presentation(pptx_stream)
+
+    text_runs = []
     for slide in prs.slides:
         for shape in slide.shapes:
             if hasattr(shape, "text"):
-                text.append(shape.text)
-    return "\n".join(text)
+                text_runs.append(shape.text)
 
-def parse_csv(file_bytes):
-    df = pd.read_csv(file_bytes)
-    return df.to_string()
+    return "\n".join(text_runs)
+
+def parse_csv(file_bytes: bytes) -> str:
+    csv_stream = io.BytesIO(file_bytes)  # wrap in file-like object
+    df = pd.read_csv(csv_stream)
+    return df.to_string(index=False)
 
 def parse_txt(file_bytes):
     return file_bytes.read().decode("utf-8")

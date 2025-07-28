@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+python-multipart
+aiofiles
+pdfminer.six
+python-docx
+python-pptx
+pymupdf
+markdown
+pandas
+sentence-transformers
+faiss-cpu           
+requests
+openai
+transformers
+python-dotenv

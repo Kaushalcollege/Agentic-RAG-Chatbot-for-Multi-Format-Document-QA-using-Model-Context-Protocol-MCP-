@@ -1,11 +1,10 @@
 import uuid
-import httpx
 import asyncio
 import functools
 from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-from vercel_kv import kv
+from vercel_kv import set, expire
 import pickle
 
 from utils.mcp import build_mcp_message
@@ -13,11 +12,12 @@ from utils.logger import log_trace
 from utils.vectorstore import VectorStore
 from utils.llm import generate_response
 
-router = APIRouter()
+# Import agent logic directly
+from agents.ingestion import perform_ingestion
+from agents.retrieval import perform_retrieval
+from agents.llm_response import perform_llm_response
 
-INGESTION_URL = "/agent/ingestion/parse"
-RETRIEVAL_URL = "/agent/retrieval/retrieve"
-LLM_URL = "/agent/llm/respond"
+router = APIRouter()
 
 class QueryRequest(BaseModel):
     session_id: str
@@ -44,23 +44,16 @@ async def start_session_handler(file: UploadFile = File(...)):
     trace_id = f"trace-{session_id}"
     log_trace(f"Coordinator: Starting new session {session_id}", trace_id)
 
-    # Note: On Vercel, internal requests are not needed. This is for local/MCP simulation.
-    # For a pure serverless deployment, this logic would be combined.
-    files_payload = [("files", (file.filename, await file.read(), file.content_type))]
-    # This URL needs to be the absolute URL of your deployment for serverless-to-serverless calls
-    base_url = "https://<YOUR_DEPLOYMENT_URL>" 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        ingestion_res = await client.post(f"{base_url}{INGESTION_URL}", files=files_payload)
-    
-    parsed_chunks = ingestion_res.json().get("payload", {}).get("chunks", [])
+    # Step 1: Call Ingestion Agent's logic directly
+    file_content = await file.read()
+    parsed_chunks = perform_ingestion(file.filename, file_content)
 
+    # Step 2: Create and store the Vector DB
     db = VectorStore()
     db.add_chunks(parsed_chunks)
     
-    # Save to Vercel KV
-    kv.set(session_id, pickle.dumps(db))
-    kv.expire(session_id, 3600)
-    
+    set(session_id, pickle.dumps(db))
+    expire(session_id, 3600)
     log_trace(f"Coordinator: Vector store created for {session_id}", trace_id)
 
     return build_mcp_message(
@@ -76,23 +69,25 @@ async def query_handler(request: QueryRequest):
     session_id = request.session_id
     trace_id = f"trace-{session_id}"
     log_trace("Coordinator: Received query", trace_id)
+
+    # Step 1: Call Retrieval Agent's logic directly
+    retrieved_chunks = perform_retrieval(
+        session_id, request.user_query, request.chat_history or []
+    )
+    if not retrieved_chunks:
+        return {"error": "Could not retrieve relevant context"}
+
+    # Step 2: Call LLM Agent's logic directly
+    final_answer = perform_llm_response(
+        request.user_query, retrieved_chunks, trace_id
+    )
     
-    base_url = "https://<YOUR_DEPLOYMENT_URL>"
-
-    retrieval_payload = request.dict()
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        retrieval_res = await client.post(f"{base_url}{RETRIEVAL_URL}", json=retrieval_payload)
-    
-    retrieved_chunks = retrieval_res.json().get("payload", {}).get("retrieved_context", [])
-
-    llm_payload = {"query": request.user_query, "top_chunks": retrieved_chunks, "trace_id": trace_id}
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        llm_res = await client.post(f"{base_url}{LLM_URL}", json=llm_payload)
-
-    final_payload = llm_res.json().get("payload", {})
-    final_answer = final_payload.get("answer", "No answer generated")
-
-    tasks_to_run = [functools.partial(extract_precise_snippet, final_answer, p) for p in retrieved_chunks]
+    # Step 3: Extract precise snippets
+    tasks_to_run = [
+        functools.partial(extract_precise_snippet, final_answer, p) 
+        for p in retrieved_chunks
+    ]
     precise_snippets = await asyncio.gather(*[asyncio.to_thread(func) for func in tasks_to_run])
 
-    return { "answer": final_answer, "source_context": precise_snippets }
+    # Step 4: Return final, clean JSON to the frontend
+    return {"answer": final_answer, "source_context": precise_snippets}

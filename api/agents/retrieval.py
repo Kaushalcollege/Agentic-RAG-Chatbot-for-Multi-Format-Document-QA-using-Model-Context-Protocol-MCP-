@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from sentence_transformers.cross_encoder import CrossEncoder
-from vercel_kv import kv
+from vercel_kv import get
 import pickle
 
 from utils.mcp import build_mcp_message
@@ -24,20 +24,22 @@ def rewrite_query(user_query: str, chat_history: list) -> str:
     prompt = f"Given the chat history and a follow up question, rephrase it to be a standalone question.\n\nHistory:\n{history_str}\n\nFollow Up: {user_query}\nStandalone Question:"
     return generate_response(prompt)
 
-@router.post("/retrieve")
-async def retrieve_context(request: RetrievalRequest):
-    trace_id = f"trace-{request.session_id}"
+def perform_retrieval(session_id: str, user_query: str, chat_history: list) -> List[str]:
+    """Main logic for the retrieval agent, now importable."""
+    trace_id = f"trace-{session_id}"
     log_trace("RetrievalAgent: Received query", trace_id)
     
     try:
-        db_bytes = kv.get(request.session_id)
-        if not db_bytes: raise ValueError("Session not found in KV store.")
+        db_bytes = get(session_id)
+        if not db_bytes: 
+            log_trace(f"RetrievalAgent ERROR: Session not found in KV store.", trace_id)
+            return []
         db = pickle.loads(db_bytes)
     except Exception as e:
         log_trace(f"RetrievalAgent ERROR: {e}", trace_id)
-        return build_mcp_message("RetrievalAgent", "CoordinatorAgent", "ERROR", {"error": "Invalid or expired session_id"}, trace_id)
+        return []
 
-    standalone_query = rewrite_query(request.user_query, request.chat_history or [])
+    standalone_query = rewrite_query(user_query, chat_history)
     log_trace(f"RetrievalAgent: Standalone query is '{standalone_query}'", trace_id)
 
     initial_chunks = db.query(standalone_query, k=10)
@@ -46,13 +48,11 @@ async def retrieve_context(request: RetrievalRequest):
     scores = cross_encoder.predict(sentence_pairs)
     scored_chunks = sorted(zip(scores, initial_chunks), reverse=True)
     reranked_chunks = [chunk for score, chunk in scored_chunks[:3]]
-
     log_trace(f"RetrievalAgent: Found {len(reranked_chunks)} re-ranked chunks", trace_id)
-    
-    return build_mcp_message(
-        sender="RetrievalAgent",
-        receiver="CoordinatorAgent",
-        msg_type="RETRIEVAL_RESULT",
-        payload={"retrieved_context": reranked_chunks},
-        trace_id=trace_id
-    )
+    return reranked_chunks
+
+@router.post("/retrieve")
+async def retrieve_context_endpoint(request: RetrievalRequest):
+    """This endpoint is kept for architectural compliance but is not used in the main Vercel flow."""
+    chunks = perform_retrieval(request.session_id, request.user_query, request.chat_history or [])
+    return build_mcp_message("RetrievalAgent", "CoordinatorAgent", "RETRIEVAL_RESULT", {"retrieved_context": chunks})

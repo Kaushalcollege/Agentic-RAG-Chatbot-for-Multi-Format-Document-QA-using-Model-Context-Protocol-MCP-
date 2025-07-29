@@ -13,30 +13,32 @@ class LLMRequest(BaseModel):
     top_chunks: List[str]
     trace_id: str
 
-@router.post("/respond")
-async def generate_answer(data: LLMRequest):
-    trace_id = data.trace_id
+def perform_llm_response(query: str, top_chunks: List[str], trace_id: str) -> str:
+    """Main logic for the LLM agent, now importable."""
     log_trace("LLMResponseAgent: Received context", trace_id)
+    context = "\n\n".join(top_chunks)
+    prompt = f"""
+You are an intelligent AI assistant that answers questions based on document context.
 
-    context = "\n\n".join(data.top_chunks)
-    prompt = f"""You are a helpful AI assistant that answers user questions based on the provided document context.
-
-- For specific questions, find the answer in the provided context and respond directly.
-
-Context from the document:
----
+Context:
 {context}
----
 
-Question: {data.query}"""
+Question:
+{query}
+""".strip()
+    try:
+        answer = generate_response(prompt)
+        log_trace("LLMResponseAgent: Generated answer", trace_id)
+        return answer
+    except Exception as e:
+        log_trace(f"LLM generation failed: {e}", trace_id)
+        return f"LLM failed: {str(e)}"
 
-    answer = generate_response(prompt)
-    log_trace("LLMResponseAgent: Generated answer", trace_id)
-
+@router.post("/respond")
+async def generate_answer_endpoint(data: LLMRequest):
+    """This endpoint is kept for architectural compliance but is not used in the main Vercel flow."""
+    answer = perform_llm_response(data.query, data.top_chunks, data.trace_id)
     return build_mcp_message(
-        sender="LLMResponseAgent",
-        receiver="CoordinatorAgent",
-        msg_type="FINAL_ANSWER",
-        payload={"answer": answer, "source_context": data.top_chunks},
-        trace_id=trace_id
+        "LLMResponseAgent", "CoordinatorAgent", "FINAL_ANSWER", 
+        {"answer": answer, "source_context": data.top_chunks}
     )

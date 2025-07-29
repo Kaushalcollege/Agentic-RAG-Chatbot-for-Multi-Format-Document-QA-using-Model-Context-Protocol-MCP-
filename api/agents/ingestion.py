@@ -9,7 +9,7 @@ from utils.logger import log_trace
 router = APIRouter()
 
 def intelligent_chunking(full_text: str) -> list[str]:
-    """Splits text into small, focused chunks for better retrieval."""
+    """Splits text into small, focused chunks."""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=100,
@@ -18,24 +18,20 @@ def intelligent_chunking(full_text: str) -> list[str]:
     )
     return text_splitter.split_text(full_text)
 
+def perform_ingestion(filename: str, file_content: bytes) -> List[str]:
+    """Main logic for the ingestion agent, now importable."""
+    trace_id = f"trace-{filename}"
+    log_trace(f"IngestionAgent: Parsing document", trace_id)
+    
+    parsed_text = parse_file(filename, file_content)
+    chunks = intelligent_chunking(parsed_text)
+    
+    log_trace(f"IngestionAgent: Created {len(chunks)} chunks", trace_id)
+    return chunks
+
 @router.post("/parse")
-async def parse_documents(files: List[UploadFile] = File(...)):
-    trace_id = f"trace-{files[0].filename}"
-    log_trace(f"IngestionAgent: Parsing {len(files)} document(s)", trace_id)
-
-    all_chunks = []
-    for file in files:
-        content = await file.read()
-        parsed_text = parse_file(file.filename, content)
-        chunks = intelligent_chunking(parsed_text)
-        all_chunks.extend(chunks)
-
-    log_trace(f"IngestionAgent: Created {len(all_chunks)} chunks", trace_id)
-
-    return build_mcp_message(
-        sender="IngestionAgent",
-        receiver="CoordinatorAgent",
-        msg_type="PARSED_CHUNKS",
-        payload={"chunks": all_chunks},
-        trace_id=trace_id
-    )
+async def parse_documents_endpoint(files: List[UploadFile] = File(...)):
+    """This endpoint is kept for architectural compliance but is not used in the main Vercel flow."""
+    content = await files[0].read()
+    chunks = perform_ingestion(files[0].filename, content)
+    return build_mcp_message("IngestionAgent", "CoordinatorAgent", "PARSED_CHUNKS", {"chunks": chunks})

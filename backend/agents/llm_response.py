@@ -16,37 +16,27 @@ class LLMRequest(BaseModel):
 @router.post("/respond")
 async def generate_answer(data: LLMRequest):
     trace_id = data.trace_id
+    log_trace("LLMResponseAgent: Received context", trace_id)
 
-    log_trace("Formatting prompt for LLM with context", trace_id)
-
-    # Construct prompt with context
     context = "\n\n".join(data.top_chunks)
-    prompt = f"""
-You are an intelligent AI assistant that answers questions based on document context.
+    prompt = f"""You are a helpful AI assistant that answers user questions based on the provided document context.
 
-Context:
+- For specific questions, find the answer in the provided context and respond directly.
+
+Context from the document:
+---
 {context}
+---
 
-Question:
-{data.query}
-""".strip()
+Question: {data.query}"""
 
-    # Generate response using Groq or fallback LLM
-    try:
-        answer = generate_response(prompt)
-        log_trace("LLM generated response successfully", trace_id)
-    except Exception as e:
-        answer = f"LLM failed: {str(e)}"
-        log_trace("LLM generation failed", trace_id)
+    answer = generate_response(prompt)
+    log_trace("LLMResponseAgent: Generated answer", trace_id)
 
-    # Return answer + source chunks in MCP message
     return build_mcp_message(
         sender="LLMResponseAgent",
         receiver="CoordinatorAgent",
         msg_type="FINAL_ANSWER",
-        payload={
-            "answer": answer,
-            "source_context": data.top_chunks
-        },
+        payload={"answer": answer, "source_context": data.top_chunks},
         trace_id=trace_id
     )

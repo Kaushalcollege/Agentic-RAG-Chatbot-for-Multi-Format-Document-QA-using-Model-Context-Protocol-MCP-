@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { FileUpload } from "./components/FileUpload";
 import { ChatInterface } from "./components/ChatInterface";
 import type { ChatMessage, Source } from "./components/ChatInterface";

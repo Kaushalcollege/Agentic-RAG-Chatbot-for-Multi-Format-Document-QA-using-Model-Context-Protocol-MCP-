@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
 import { User, Bot, FileText } from "lucide-react";
 
 export interface Source {

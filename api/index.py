@@ -6,7 +6,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"], # Using "*" for simplicity, you can restrict it to your vercel.app URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,3 +21,8 @@ app.include_router(llm_response.router, prefix="/agent/llm", tags=["LLM"])
 @app.get("/")
 def read_root():
     return {"message": "Agentic RAG Chatbot - MCP Architecture"}
+
+# Health check endpoint for debugging
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok"}

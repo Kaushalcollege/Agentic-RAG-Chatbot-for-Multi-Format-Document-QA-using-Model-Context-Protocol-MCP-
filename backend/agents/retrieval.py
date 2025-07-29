@@ -1,4 +1,3 @@
-# backend/agents/retrieval.py
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List

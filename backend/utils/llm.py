@@ -1,5 +1,3 @@
-# backend/utils/llm.py
-
 import requests
 from transformers import pipeline
 from config import GROQ_API_KEY, GROQ_MODEL, FALLBACK_MODEL, USE_FALLBACK
@@ -36,5 +34,5 @@ def generate_response(prompt: str) -> str:
     try:
         return query_groq(prompt)
     except Exception as e:
-        print(f"[❌ Groq API failed] {e}")
+        print(f"[Groq API failed] {e}")
         return "Groq failed and fallback is disabled."

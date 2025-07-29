@@ -1,4 +1,3 @@
-# backend/agents/ingestion.py
 from fastapi import APIRouter, UploadFile, File
 from utils.mcp import build_mcp_message
 from utils.parser import parse_file
@@ -8,7 +7,7 @@ router = APIRouter()
 
 @router.post("/parse")
 async def parse_documents(files: list[UploadFile] = File(...)):
-    trace_id = f"trace-{files[0].filename}"  # Simplified
+    trace_id = f"trace-{files[0].filename}"  
 
     all_chunks = []
     for file in files:

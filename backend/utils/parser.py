@@ -1,5 +1,4 @@
-# backend/utils/parser.py
-import fitz  # PyMuPDF
+import fitz  
 import docx
 import csv
 import pptx
@@ -15,13 +14,12 @@ def parse_pdf(file_bytes):
     return text
 
 def parse_docx(file_bytes: bytes) -> str:
-    doc_stream = io.BytesIO(file_bytes)  # Wrap bytes as file-like
-    doc = docx.Document(doc_stream)      # Works now
+    doc_stream = io.BytesIO(file_bytes)  
+    doc = docx.Document(doc_stream)      
     return "\n".join([para.text for para in doc.paragraphs])
 
 
 def parse_pptx(file_bytes: bytes) -> str:
-    # Convert bytes to a file-like object
     pptx_stream = io.BytesIO(file_bytes)
     prs = Presentation(pptx_stream)
 
@@ -34,7 +32,7 @@ def parse_pptx(file_bytes: bytes) -> str:
     return "\n".join(text_runs)
 
 def parse_csv(file_bytes: bytes) -> str:
-    csv_stream = io.BytesIO(file_bytes)  # wrap in file-like object
+    csv_stream = io.BytesIO(file_bytes)  
     df = pd.read_csv(csv_stream)
     return df.to_string(index=False)
 

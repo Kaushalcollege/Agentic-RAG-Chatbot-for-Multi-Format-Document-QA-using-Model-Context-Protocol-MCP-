@@ -1,4 +1,3 @@
-# backend/utils/mcp.py
 import uuid
 from typing import Any, Dict
 

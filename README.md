@@ -4,8 +4,13 @@ This project implements a high-performance, enterprise-grade Retrieval-Augmented
 
 The backend is built as a set of microservices, where each agent (`Ingestion`, `Retrieval`, `LLMResponse`) operates as a distinct API endpoint. A central **Coordinator** agent orchestrates the workflow by making HTTP requests to these services, perfectly embodying the principles of a distributed, message-passing system as outlined by the Model Context Protocol (MCP).
 
-![UI Screenshot 1](https://i.imgur.com/8F9S81O.png)
-![UI Screenshot 2](https://i.imgur.com/k9x8lTj.png)
+**Screenshots:**
+
+<p align="center">
+  <img src="assets/Screenshot 2025-07-31 at 8.28.34 AM.png" width="48%">
+  &nbsp;
+  <img src="assets/Screenshot 2025-07-31 at 8.28.54 AM.png" width="48%">
+</p>
 
 ---
 
@@ -40,7 +45,8 @@ The backend is built as a set of microservices, where each agent (`Ingestion`, `
 
 The system is designed with a clean separation between the client-side user interface and the server-side logic, communicating over a REST API.
 
-![Architecture Diagram](https://i.imgur.com/9C0N7pD.png)
+![Architecture Diagram 1](assets/B664A53E-457B-44A1-B596-BE9487048A39.jpeg)
+![Architecture Diagram 2](assets/CEBC2D23-7B59-4345-B7D5-BBF04F66614F.jpeg)
 
 ### Frontend
 

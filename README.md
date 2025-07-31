@@ -10,6 +10,11 @@ The backend is built as a set of microservices, where each agent (`Ingestion`, `
   <img src="assets/Screenshot 2025-07-31 at 8.28.34 AM.png" width="48%">
   &nbsp;
   <img src="assets/Screenshot 2025-07-31 at 8.28.54 AM.png" width="48%">
+  <img src="assets/Screenshot 2025-07-31 at 8.44.16 AM.png" width="48%">
+  &nbsp;
+  <img src="assets/Screenshot 2025-07-31 at 8.45.13 AM.png" width="48%">
+  &nbsp;
+  <img src="assets/Screenshot 2025-07-31 at 8.45.13 AM.png" width="48%">
 </p>
 
 ---

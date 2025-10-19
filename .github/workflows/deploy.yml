@@ -2,90 +2,84 @@
 name: Deploy to AWS EC2
 
 # This tells GitHub WHEN to run this script.
-# We're telling it to run every time you 'push' to the 'main' branch.
 on:
   push:
     branches:
       - master
 
-# This defines the "jobs" to run. We just have one: "deploy".
 jobs:
   deploy:
-    # This job will run on a temporary cloud computer (a "runner") provided by GitHub.
-    # It will use the latest version of Ubuntu.
     runs-on: ubuntu-latest
 
     steps:
       # --- Step 1: Check out your code ---
-      # This downloads your repository's code onto the runner.
       - name: Checkout code
         uses: actions/checkout@v4
 
       # --- Step 2: Set up Node.js ---
-      # This installs Node.js on the runner, which we need to build the frontend.
-      # We specify version 20, just like we did on the server.
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       # --- Step 3: Build the Frontend ---
-      # This is the "CI" (Continuous Integration) part.
-      # It runs the build process on the runner, not on your EC2 instance.
       - name: Build Frontend
         run: |
           cd frontend
           npm install
           npm run build
 
-      # --- Step 4: Copy files to EC2 ---
-      # This is the "CD" (Continuous Deployment) part.
-      # It securely copies ALL your files (backend, and the newly built frontend/dist)
-      # from the runner to your EC2 server.
-      - name: Copy files to EC2
-        uses: appleboy/scp-action@master
-        with:
-          # These `secrets` are the ones you just created.
-          host: ${{ secrets.AWS_HOST }}
-          username: ${{ secrets.AWS_USER }}
-          key: ${{ secrets.AWS_SSH_KEY }}
-          port: 22
-          source: "." # This means "copy everything from the current directory"
-          #
-          # V V V V V V V V V V V V V V V V V V V V V V V
-          # !! CRITICAL !!
-          # Replace this path with the path to your project folder on the EC2 server.
-          target: "/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-"
-          # A A A A A A A A A A A A A A A A A A A A A A A
-          #
+      # --- Step 4: Install Rsync ---
+      # We install rsync, a robust file-copying tool
+      - name: Install Rsync
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync openssh-client
 
-      # --- Step 5: Restart the Server on EC2 ---
-      # This securely logs into your EC2 server and runs the commands
-      # to stop the old server and start the new one.
+      # --- Step 5: Deploy files using Rsync ---
+      # This is the new, more reliable file copy step
+      - name: Deploy with Rsync
+        run: |
+          # 1. Create the .ssh directory on the runner
+          mkdir -p ~/.ssh
+
+          # 2. Put your private key (from the secret) into a file
+          # We use the (RSA converted) 'github-action-key'
+          echo "${{ secrets.AWS_SSH_KEY }}" > ~/.ssh/id_rsa
+
+          # 3. Set the correct, strict file permissions
+          chmod 600 ~/.ssh/id_rsa
+
+          # 4. Get the server's host key to avoid the "Are you sure..." prompt
+          ssh-keyscan -H ${{ secrets.AWS_HOST }} >> ~/.ssh/known_hosts
+
+          # 5. Sync all files to the server.
+          # -a: archive mode (preserves permissions)
+          # -v: verbose
+          # -z: compress
+          # --delete: deletes old files on the server that aren't in the push
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_rsa" \
+            . \
+            ${{ secrets.AWS_USER }}@${{ secrets.AWS_HOST }}:/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-
+
+      # --- Step 6: Restart the Server on EC2 ---
+      # This step is the same as before
       - name: Restart Server on EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USER }}
+          # We use the (RSA converted) 'github-action-key'
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
           script: |
-            # Set the project path as a variable to make it cleaner
             PROJECT_PATH="/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-"
 
-            # Navigate to the backend directory
             cd $PROJECT_PATH/backend
 
-            # Install any new Python dependencies (just in case)
             sudo pip3 install -r requirements.txt
 
-            # Find and kill the old uvicorn server
-            # This is a safe command:
-            # 1. ps aux | grep uvicorn   -> Find all processes with "uvicorn"
-            # 2. | grep -v grep         -> Remove the "grep" command itself from the list
-            # 3. | awk '{print $2}'    -> Get just the Process ID (PID)
-            # 4. | xargs -r kill       -> Kill the PID. -r means "don't run if there is no PID"
             ps aux | grep uvicorn | grep -v grep | awk '{print $2}' | xargs -r kill
 
-            # Start the new server in the background
             nohup uvicorn main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &

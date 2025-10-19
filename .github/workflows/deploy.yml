@@ -45,12 +45,19 @@ jobs:
       - name: Copy files to EC2
         uses: appleboy/scp-action@master
         with:
+          # These `secrets` are the ones you just created.
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
           source: "." # This means "copy everything from the current directory"
-          target: "/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-" # <-- CHANGE THIS if your folder name is different
+          #
+          # V V V V V V V V V V V V V V V V V V V V V V V
+          # !! CRITICAL !!
+          # Replace this path with the path to your project folder on the EC2 server.
+          target: "/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-"
+          # A A A A A A A A A A A A A A A A A A A A A A A
+          #
 
       # --- Step 5: Restart the Server on EC2 ---
       # This securely logs into your EC2 server and runs the commands
@@ -63,11 +70,14 @@ jobs:
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
           script: |
-            # Navigate to the backend directory
-            cd /home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-/backend
+            # Set the project path as a variable to make it cleaner
+            PROJECT_PATH="/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-"
 
-            # Install any new Python dependencies
-            pip3 install -r requirements.txt
+            # Navigate to the backend directory
+            cd $PROJECT_PATH/backend
+
+            # Install any new Python dependencies (just in case)
+            sudo pip3 install -r requirements.txt
 
             # Find and kill the old uvicorn server
             # This is a safe command:

@@ -14,9 +14,9 @@ from agents.retrieval import session_vector_stores
 
 router = APIRouter()
 
-INGESTION_URL = "http://localhost:8000/agent/ingestion/parse"
-RETRIEVAL_URL = "http://localhost:8000/agent/retrieval/retrieve"
-LLM_URL = "http://localhost:8000/agent/llm/respond"
+INGESTION_URL = "/agent/ingestion/parse"
+RETRIEVAL_URL = "/agent/retrieval/retrieve"
+LLM_URL = "/agent/llm/respond"
 
 class QueryRequest(BaseModel):
     session_id: str

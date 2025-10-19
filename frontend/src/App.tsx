@@ -28,7 +28,7 @@ export default function App() {
         const formData = new FormData();
         formData.append("file", file);
         const res = await fetch(
-          "http://localhost:8000/agent/coordinator/start_session",
+          "/agent/coordinator/start_session",
           {
             method: "POST",
             body: formData,
@@ -78,7 +78,7 @@ export default function App() {
         }));
 
         const res = await fetch(
-          "http://localhost:8000/agent/coordinator/query",
+          "/agent/coordinator/query",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

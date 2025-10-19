@@ -12,7 +12,7 @@ from utils.logger import log_trace
 from utils.llm import generate_response
 
 router = APIRouter()
-LLM_URL = "http://localhost:8000/agent/llm/respond"
+LLM_URL = "/agent/llm/respond"
 cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 log_trace("Cross-Encoder model loaded.", "SYSTEM")
 

@@ -1,0 +1,81 @@
+# This is the name of your GitHub Action workflow
+name: Deploy to AWS EC2
+
+# This tells GitHub WHEN to run this script.
+# We're telling it to run every time you 'push' to the 'main' branch.
+on:
+  push:
+    branches:
+      - main
+
+# This defines the "jobs" to run. We just have one: "deploy".
+jobs:
+  deploy:
+    # This job will run on a temporary cloud computer (a "runner") provided by GitHub.
+    # It will use the latest version of Ubuntu.
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- Step 1: Check out your code ---
+      # This downloads your repository's code onto the runner.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Step 2: Set up Node.js ---
+      # This installs Node.js on the runner, which we need to build the frontend.
+      # We specify version 20, just like we did on the server.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # --- Step 3: Build the Frontend ---
+      # This is the "CI" (Continuous Integration) part.
+      # It runs the build process on the runner, not on your EC2 instance.
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      # --- Step 4: Copy files to EC2 ---
+      # This is the "CD" (Continuous Deployment) part.
+      # It securely copies ALL your files (backend, and the newly built frontend/dist)
+      # from the runner to your EC2 server.
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          source: "." # This means "copy everything from the current directory"
+          target: "/home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-" # <-- CHANGE THIS if your folder name is different
+
+      # --- Step 5: Restart the Server on EC2 ---
+      # This securely logs into your EC2 server and runs the commands
+      # to stop the old server and start the new one.
+      - name: Restart Server on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          script: |
+            # Navigate to the backend directory
+            cd /home/ec2-user/Agentic-RAG-Chatbot-for-Multi-Format-Document-QA-using-Model-Context-Protocol-MCP-/backend
+
+            # Install any new Python dependencies
+            pip3 install -r requirements.txt
+
+            # Find and kill the old uvicorn server
+            # This is a safe command:
+            # 1. ps aux | grep uvicorn   -> Find all processes with "uvicorn"
+            # 2. | grep -v grep         -> Remove the "grep" command itself from the list
+            # 3. | awk '{print $2}'    -> Get just the Process ID (PID)
+            # 4. | xargs -r kill       -> Kill the PID. -r means "don't run if there is no PID"
+            ps aux | grep uvicorn | grep -v grep | awk '{print $2}' | xargs -r kill
+
+            # Start the new server in the background
+            nohup uvicorn main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &

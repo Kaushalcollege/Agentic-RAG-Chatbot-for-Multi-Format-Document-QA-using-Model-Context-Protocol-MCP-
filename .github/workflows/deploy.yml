@@ -6,7 +6,7 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - main
+      - master
 
 # This defines the "jobs" to run. We just have one: "deploy".
 jobs:
